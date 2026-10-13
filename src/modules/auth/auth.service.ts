@@ -57,6 +57,14 @@ export class AuthService {
     this.loginAttempts.delete(phoneNumber);
   }
 
+  // Accepts 9-digit local numbers (911166692) and full international format
+  // (+998911166692 / 998911166692) — all normalize to the same 9 digits.
+  private normalizePhone(raw: string): string {
+    const digits = (raw ?? '').replace(/\D/g, '');
+    if (/^998\d{9}$/.test(digits)) return digits.slice(3);
+    return digits;
+  }
+
   private mapUserProfile(user: {
     id: string;
     first_name: string;
@@ -108,8 +116,10 @@ export class AuthService {
       throw new ConflictException('Missing required fields');
     }
 
+    const phoneNumber = this.normalizePhone(registerDto.phoneNumber);
+
     const user = await this.prismaService.user.findUnique({
-      where: { phone_number: registerDto.phoneNumber },
+      where: { phone_number: phoneNumber },
     });
 
     if (user) {
@@ -121,7 +131,7 @@ export class AuthService {
         first_name: registerDto.firstName,
         address: registerDto.address,
         last_name: registerDto.lastName,
-        phone_number: registerDto.phoneNumber,
+        phone_number: phoneNumber,
       },
     });
 
@@ -133,7 +143,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const phoneNumber = loginDto.phoneNumber?.trim();
+    const phoneNumber = this.normalizePhone(loginDto.phoneNumber ?? '');
     if (!phoneNumber) {
       throw new UnauthorizedException("Telefon raqam yoki parol noto'g'ri");
     }
