@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String      @id @default(uuid())
+  first_name        String      @map("firstName") @db.VarChar(255)
+  last_name         String      @map("lastName") @db.VarChar(255)
+  phone_number      String      @unique @map("phoneNumber") @db.VarChar(255)
+  password          String?     @db.VarChar(244)
+  role              Role        @default(user)
+  is_phone_verified Boolean     @default(false) @map("isPhoneVerified")
+  address           String
+  created_at        DateTime    @default(now()) @map("createdAt")
+  updated_at        DateTime    @updatedAt @map("updatedAt")
+  liked_flowers     UserLikes[]
+
+  @@map("users")
+}
+
+model UserLikes {
+  id         String   @id @default(uuid())
+  user_id    String   @map("userId")
+  user       User     @relation(fields: [user_id], references: [id])
+  flower_id  String   @map("flowerId")
+  flower     Flower   @relation(fields: [flower_id], references: [id])
+  created_at DateTime @default(now()) @map("createdAt")
+  updated_at DateTime @updatedAt @map("updatedAt")
+
+  @@unique([user_id, flower_id])
+  @@map("user_likes")
+}
+
+model Flower {
+  id          String      @id @default(uuid())
+  name        String      @db.VarChar(250)
+  smell       String      @db.VarChar(250)
+  flower_size String      @map("flowerSize") @db.VarChar(250)
+  height      String      @db.VarChar(250)
+  img_url     String?     @map("imgUrl")
+  price       String
+  stock       Int         @default(0)
+  category_id String      @map("categoryId") @db.VarChar(250)
+  created_at  DateTime    @default(now()) @map("createdAt")
+  updated_at  DateTime    @updatedAt @map("updatedAt")
+  category    Category    @relation(fields: [category_id], references: [id])
+  order_items OrderItem[] @relation("flower_order_items")
+  liked_by    UserLikes[]
+
+  @@map("flowers")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(250)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  flowers   Flower[]
+
+  @@map("category")
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  name              String      @db.VarChar(250)
+  phone_number      String      @map("phoneNumber") @db.VarChar(250)
+  address           String
+  telegram_username String
+  status            Status      @default(pending)
+  created_at        DateTime    @default(now()) @map("createdAt")
+  updated_at        DateTime    @updatedAt @map("updatedAt")
+  items             OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  quantity   Int      @default(1)
+  price      Float
+  flower_id  String   @map("flowerId") @db.VarChar(250)
+  order_id   String   @map("orderId") @db.VarChar(250)
+  flower     Flower   @relation(fields: [flower_id], references: [id], name: "flower_order_items")
+  order      Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now()) @map("createdAt")
+  updated_at DateTime @updatedAt @map("updatedAt")
+
+  @@map("order_items")
+}
+
+enum Role {
+  admin
+  user
+}
+
+enum Smell {
+  WEAK
+  AVERAGE
+  STRONG
+  VERY_STRONG
+}
+
+enum Status {
+  pending
+  paid
+  cancelled
+}

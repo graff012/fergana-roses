@@ -1,0 +1,122 @@
+name: Deploy To Server
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Deploy to EC2
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SSH_KEY: ${{ secrets.SSH_SECRET_KEY }}
+          DATABASE_USER: ${{ secrets.DATABASE_USER }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_DB: ${{ secrets.DATABASE_DB }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          ESKIZ_EMAIL: ${{ secrets.ESKIZ_EMAIL }}
+          ESKIZ_PASSWORD: ${{ secrets.ESKIZ_PASSWORD }}
+          ADMIN_SURNAME: ${{ secrets.ADMIN_SURNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PHONE_NUMBER: ${{ secrets.ADMIN_PHONE_NUMBER }}
+          ADMIN_NAME: ${{ secrets.ADMIN_NAME }}
+          ADMIN_ROLE: ${{ secrets.ADMIN_ROLE }}
+          DATABASE_DOCKER_URL: ${{ secrets.DATABASE_DOCKER_URL }}
+          AWS_S3_REGION: ${{ secrets.AWS_S3_REGION }}
+          AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
+          AWS_S3_ACCESS_KEY_ID: ${{ secrets.AWS_S3_ACCESS_KEY_ID }}
+          AWS_S3_SECRET_ACCESS_KEY: ${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}
+          AWS_S3_ENDPOINT: ${{ secrets.AWS_S3_ENDPOINT }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          FRONTEND_URLS: ${{ secrets.FRONTEND_URLS }}
+        run: |
+          # Write SSH key
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Create .env file locally first
+          cat > .env << EOF
+          DATABASE_USER=$DATABASE_USER
+          DATABASE_PASSWORD=$DATABASE_PASSWORD
+          DATABASE_DB=$DATABASE_DB
+          DATABASE_DOCKER_URL=$DATABASE_DOCKER_URL
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          JWT_KEY=$JWT_KEY
+          ESKIZ_EMAIL=$ESKIZ_EMAIL
+          ESKIZ_PASSWORD=$ESKIZ_PASSWORD
+          ADMIN_SURNAME=$ADMIN_SURNAME
+          ADMIN_NAME=$ADMIN_NAME
+          ADMIN_ROLE=$ADMIN_ROLE
+          ADMIN_PASSWORD=$ADMIN_PASSWORD
+          ADMIN_PHONE_NUMBER=$ADMIN_PHONE_NUMBER
+          AWS_S3_REGION=$AWS_S3_REGION
+          AWS_S3_BUCKET_NAME=$AWS_S3_BUCKET_NAME
+          AWS_S3_ACCESS_KEY_ID=$AWS_S3_ACCESS_KEY_ID
+          AWS_S3_SECRET_ACCESS_KEY=$AWS_S3_SECRET_ACCESS_KEY
+          AWS_S3_ENDPOINT=$AWS_S3_ENDPOINT
+          REDIS_PASSWORD=$REDIS_PASSWORD
+          FRONTEND_URLS=$FRONTEND_URLS
+          EOF
+          
+          # Quick connectivity check (verbose) to aid debugging networking/port/key issues
+          ssh -vvv -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=40 \
+              -o TCPKeepAlive=yes \
+              -p "${SERVER_PORT:-22}" \
+              "$SERVER_USER@$SERVER_HOST" true || exit 1
+
+          # Deploy via SSH (with keepalive to avoid Broken pipe during long builds)
+          ssh -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=240 \
+              -o TCPKeepAlive=yes \
+              -o ConnectTimeout=60 \
+              -p "${SERVER_PORT:-22}" \
+              "$SERVER_USER@$SERVER_HOST" '
+          set -e
+          REPO_DIR=/home/ubuntu/app
+          
+          # Clone or pull
+          if [ ! -d "$REPO_DIR/.git" ]; then
+            git clone https://github.com/graff012/fergana-roses.git "$REPO_DIR"
+          fi
+          cd "$REPO_DIR"
+          git pull origin main
+          '
+          
+          # Copy .env file to server (with keepalive options)
+          scp -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=240 \
+              -P "${SERVER_PORT:-22}" \
+              .env "$SERVER_USER@$SERVER_HOST:/home/ubuntu/app/.env"
+          
+          # Restart services on server (keepalive during docker build)
+          ssh -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=240 \
+              -o TCPKeepAlive=yes \
+              -o ConnectTimeout=60 \
+              -p "${SERVER_PORT:-22}" \
+              "$SERVER_USER@$SERVER_HOST" '
+          cd /home/ubuntu/app
+          sudo docker compose up -d --build
+          '
+
+      - name: Clean up SSH key
+        run: rm -f ~/.ssh/id_rsa
