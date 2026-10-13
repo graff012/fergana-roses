@@ -23,6 +23,12 @@ async function bootstrap() {
 
   const allowedOrigins = new Set([...defaultOrigins, ...extraOrigins]);
 
+  // Vercel issues a unique preview URL per deployment
+  // (e.g. https://fergana-roses-frontend-abc123.vercel.app).
+  // Allow them all for this project's frontend; production domain stays explicit above.
+  const vercelPreviewPattern =
+    /^https:\/\/fergana-roses-frontend(-[a-z0-9-]+)?\.vercel\.app$/;
+
   const allowedHeaders = [
     'Content-Type',
     'Authorization',
@@ -37,7 +43,11 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.has(origin) ||
+        vercelPreviewPattern.test(origin)
+      ) {
         return callback(null, true);
       }
 
