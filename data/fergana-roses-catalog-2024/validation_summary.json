@@ -1,0 +1,30 @@
+{
+  "entries": 365,
+  "images": 365,
+  "entriesWithReviewNotes": 14,
+  "missingCategory": 6,
+  "categories": {
+    "Английские": 26,
+    "Японские": 11,
+    "Чайно-гибридные": 171,
+    "Шрабы": 25,
+    "": 6,
+    "Флорибунда": 47,
+    "Спрей": 35,
+    "Плетистые": 29,
+    "Почвопокровные": 10,
+    "Парковые": 4,
+    "Патио": 1
+  },
+  "sourcePdfSha256": "ce4062b4be0f4923ce645369f70829eeb50cb3be88bcfb52f7d217d4877d2a20",
+  "verification": {
+    "sequentialCatalogNumbers": true,
+    "uniqueFlowerNames": 365,
+    "readableJpegFiles": 365,
+    "imageChecksumsVerified": 365,
+    "excelImageHyperlinksVerified": 365,
+    "blankPriceAndStockPreserved": true,
+    "offlineAndMockApiImporterChecks": "passed",
+    "liveUploadsMade": false
+  }
+}
