@@ -35,6 +35,7 @@ COPY --from=builder /app/node_modules/@prisma /app/node_modules/@prisma
 COPY --from=builder /app/node_modules/.bin /app/node_modules/.bin
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
+COPY public ./public
 COPY --from=builder /app/wait-for-it.sh /app/start.sh ./
 
 RUN chmod +x wait-for-it.sh start.sh
